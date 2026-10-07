@@ -304,6 +304,7 @@ module Remote = struct
 
   (** Connect to an SMTP server and send a message.
 
+      @param helo_name Name sent in EHLO; should match this IP's reverse DNS
       @param host Remote server hostname
       @param port Remote server port (default 25)
       @param sender Envelope sender
@@ -458,6 +459,7 @@ module Remote = struct
       Looks up MX records and tries each in order of priority.
 
       @param dns DNS resolver for MX lookups
+      @param helo_name Name sent in EHLO; the machine's hostname if omitted
       @param dkim_config Optional DKIM signing configuration
       @param recipient The recipient email address
       @param msg The queued message
@@ -509,6 +511,7 @@ let is_local_recipient ~local_domains recipient =
     Routes to local Maildir or remote SMTP based on domain.
 
     @param dns DNS resolver for remote delivery
+    @param helo_name Name sent in EHLO; the machine's hostname if omitted
     @param dkim_config Optional DKIM signing configuration for outbound messages *)
 let deliver_to_recipient ~dns ?helo_name ?dkim_config ~local_domains ~recipient ~msg () =
   if is_local_recipient ~local_domains recipient then
@@ -519,6 +522,7 @@ let deliver_to_recipient ~dns ?helo_name ?dkim_config ~local_domains ~recipient 
 (** Deliver a queued message to all recipients.
 
     @param dns DNS resolver for remote delivery
+    @param helo_name Name sent in EHLO; the machine's hostname if omitted
     @param dkim_config Optional DKIM signing configuration for outbound messages
     @return List of (recipient, result) pairs *)
 let deliver_message ~dns ?helo_name ?dkim_config ~local_domains ~msg () =

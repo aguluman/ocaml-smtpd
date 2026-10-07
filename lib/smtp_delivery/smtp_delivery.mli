@@ -60,6 +60,7 @@ module Remote : sig
 
   (** Connect to an SMTP server and send a message.
 
+      @param helo_name Name sent in EHLO; should match this IP's reverse DNS
       @param host Remote server hostname
       @param port Remote server port (default 25)
       @param sender Envelope sender
@@ -79,6 +80,7 @@ module Remote : sig
       Looks up MX records and tries each host.
 
       @param dns DNS resolver for MX lookups
+      @param helo_name Name sent in EHLO; the machine's hostname if omitted
       @param dkim_config Optional DKIM signing configuration for outbound signing *)
   val deliver_message :
     dns:Smtp_dns.t ->
@@ -102,6 +104,7 @@ val is_local_recipient :
     Routes to local Maildir or remote SMTP based on domain.
 
     @param dns DNS resolver for remote delivery
+    @param helo_name Name sent in EHLO; the machine's hostname if omitted
     @param dkim_config Optional DKIM signing configuration for outbound messages *)
 val deliver_to_recipient :
   dns:Smtp_dns.t ->
@@ -116,6 +119,7 @@ val deliver_to_recipient :
 (** Deliver a queued message to all recipients.
 
     @param dns DNS resolver for remote delivery
+    @param helo_name Name sent in EHLO; the machine's hostname if omitted
     @param dkim_config Optional DKIM signing configuration for outbound messages
     @return List of (recipient, result) pairs *)
 val deliver_message :
