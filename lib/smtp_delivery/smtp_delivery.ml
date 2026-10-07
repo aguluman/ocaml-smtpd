@@ -285,20 +285,31 @@ module Remote = struct
         Error (Printf.sprintf "TLS error: %s" (Printexc.to_string exn))
 
   (** Connect to the first of [addrs] that accepts, in getaddrinfo's order
-      (so /etc/gai.conf preferences apply). A host with both IPv6 and IPv4
-      addresses is still reached when one family is unroutable from here. *)
+      (so /etc/gai.conf preferences apply). Every step of an attempt is
+      guarded, so an address family the machine cannot use (IPv6 disabled,
+      say) moves on to the next address instead of abandoning the host. *)
   let connect_any ~host addrs =
+    let attempt addr =
+      match Unix.socket addr.Unix.ai_family Unix.SOCK_STREAM 0 with
+      | exception Unix.Unix_error (code, _, _) -> Error code
+      | sock -> (
+          match
+            Unix.setsockopt_float sock Unix.SO_RCVTIMEO 30.0;
+            Unix.setsockopt_float sock Unix.SO_SNDTIMEO 30.0;
+            Unix.connect sock addr.Unix.ai_addr
+          with
+          | () -> Ok sock
+          | exception Unix.Unix_error (code, _, _) ->
+            Unix.close sock;
+            Error code)
+    in
     let rec go last_error = function
       | [] -> Error last_error
-      | addr :: rest ->
-        let sock = Unix.socket addr.Unix.ai_family Unix.SOCK_STREAM 0 in
-        Unix.setsockopt_float sock Unix.SO_RCVTIMEO 30.0;
-        Unix.setsockopt_float sock Unix.SO_SNDTIMEO 30.0;
-        match Unix.connect sock addr.Unix.ai_addr with
-        | () -> Ok sock
-        | exception Unix.Unix_error (code, _, _) ->
-          Unix.close sock;
-          go (Printf.sprintf "Connect failed: %s" (Unix.error_message code)) rest
+      | addr :: rest -> (
+          match attempt addr with
+          | Ok sock -> Ok sock
+          | Error code ->
+            go (Printf.sprintf "Connect failed: %s" (Unix.error_message code)) rest)
     in
     go ("Could not resolve: " ^ host) addrs
 
