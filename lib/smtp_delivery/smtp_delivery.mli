@@ -67,6 +67,7 @@ module Remote : sig
       @param message Message content
       @return Delivery result *)
   val deliver :
+    helo_name:string ->
     host:string ->
     port:int ->
     sender:Smtp_types.email_address option ->
@@ -81,6 +82,7 @@ module Remote : sig
       @param dkim_config Optional DKIM signing configuration for outbound signing *)
   val deliver_message :
     dns:Smtp_dns.t ->
+    ?helo_name:string ->
     ?dkim_config:Smtp_dkim.signing_config ->
     recipient:Smtp_types.email_address ->
     msg:Smtp_types.queued_message ->
@@ -103,6 +105,7 @@ val is_local_recipient :
     @param dkim_config Optional DKIM signing configuration for outbound messages *)
 val deliver_to_recipient :
   dns:Smtp_dns.t ->
+  ?helo_name:string ->
   ?dkim_config:Smtp_dkim.signing_config ->
   local_domains:string list ->
   recipient:Smtp_types.email_address ->
@@ -117,6 +120,7 @@ val deliver_to_recipient :
     @return List of (recipient, result) pairs *)
 val deliver_message :
   dns:Smtp_dns.t ->
+  ?helo_name:string ->
   ?dkim_config:Smtp_dkim.signing_config ->
   local_domains:string list ->
   msg:Smtp_types.queued_message ->
