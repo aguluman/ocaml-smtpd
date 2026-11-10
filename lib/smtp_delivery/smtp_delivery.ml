@@ -501,7 +501,12 @@ module Remote = struct
             then String.sub host 0 (String.length host - 1)
             else host
           in
-          match deliver ~helo_name ~host ~port:25 ~sender:msg.sender ~recipient ~message:message_to_send with
+          (* deliver blocks on plain sockets; in a system thread it no longer freezes the server's fibers. *)
+          match
+            Eio_unix.run_in_systhread ~label:"smtp-deliver" (fun () ->
+                deliver ~helo_name ~host ~port:25 ~sender:msg.sender ~recipient
+                  ~message:message_to_send)
+          with
           | Delivered -> Delivered
           | Failed reason -> Failed reason  (* Permanent failure, don't try other hosts *)
           | Deferred _ -> try_hosts rest    (* Try next host *)
