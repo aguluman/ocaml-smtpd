@@ -22,7 +22,7 @@
   "A secure SMTP server (RFC 5321) with STARTTLS, SASL authentication, SPF, DKIM, and DMARC support. Features closed relay enforcement and fork-per-connection privilege separation.")
  (depends
   (ocaml (>= 5.0))
-  (dune (>= 3.0))
+  (dune (>= 3.25))
   (conf-pam :build)
   (eio (>= 1.0))
   (eio_main (>= 1.0))
