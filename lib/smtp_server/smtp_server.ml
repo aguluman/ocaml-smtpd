@@ -141,14 +141,6 @@ module Make
         send_response flow bad_sequence;
         state
 
-  (** Whether [client_ip] is this machine. Unauthenticated relay is only ever
-      allowed from here (the same default as Postfix's mynetworks), so a
-      listener bound beyond loopback by mistake never becomes an open relay. *)
-  let is_loopback client_ip =
-    String.starts_with ~prefix:"127." client_ip
-    || client_ip = "::1"
-    || String.starts_with ~prefix:"::ffff:127." client_ip
-
   (** The relay rule. Authenticated clients, and mail for local domains, are
       always accepted ([is_relay_allowed]). Without --require-auth, local
       processes (loopback clients) may also relay unauthenticated: the case of
@@ -342,7 +334,8 @@ module Make
        | Ok data ->
          (* Perform SPF/DKIM/DMARC checks *)
          let (auth_header, dmarc_result) =
-           check_authentication t ~client_ip ~sender ~data
+           if is_submission ~client_ip ~username then ("", None)
+           else check_authentication t ~client_ip ~sender ~data
          in
 
          (* Check if we should reject based on DMARC *)

@@ -64,6 +64,16 @@ let test_relay_denied_in_initial_state () =
   check bool "relay denied in initial state" false
     (is_relay_allowed ~state:Initial ~recipient ~local_domains)
 
+let test_submissions_skip_inbound_checks () =
+  check bool "an application on this machine" true
+    (is_submission ~client_ip:"127.0.0.1" ~username:None);
+  check bool "over IPv6 loopback" true
+    (is_submission ~client_ip:"::1" ~username:None);
+  check bool "a signed-in user elsewhere" true
+    (is_submission ~client_ip:"203.0.113.9" ~username:(Some "sender"));
+  check bool "a stranger's server is checked" false
+    (is_submission ~client_ip:"203.0.113.9" ~username:None)
+
 (** {1 Parser Tests} *)
 
 let test_parse_ehlo () =
@@ -273,6 +283,7 @@ let relay_tests = [
   "relay allowed to local", `Quick, test_relay_allowed_to_local;
   "relay allowed authenticated", `Quick, test_relay_allowed_authenticated;
   "relay denied initial state", `Quick, test_relay_denied_in_initial_state;
+  "submissions skip inbound checks", `Quick, test_submissions_skip_inbound_checks;
 ]
 
 let parser_tests = [

@@ -174,6 +174,12 @@ val is_valid_domain : domain -> bool
 val is_valid_email_address : email_address -> bool
 val is_local_domain : domain -> local_domains:string list -> bool
 
+(** Whether [client_ip] is this machine (the same default as Postfix's mynetworks). *)
+val is_loopback : string -> bool
+
+(** Mail handed over to send out, from this machine or a signed-in user: no inbound checks apply. *)
+val is_submission : client_ip:string -> username:string option -> bool
+
 (** {1 Closed Relay Enforcement}
 
     Critical security function. Unauthenticated senders can only deliver to

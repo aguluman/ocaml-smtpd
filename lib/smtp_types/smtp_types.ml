@@ -249,6 +249,16 @@ let is_local_domain domain ~local_domains =
     This is the critical security function. Unauthenticated senders can only
     deliver to local domains. Authenticated users can relay anywhere. *)
 
+(** Whether [client_ip] is this machine (the same default as Postfix's mynetworks). *)
+let is_loopback client_ip =
+  String.starts_with ~prefix:"127." client_ip
+  || client_ip = "::1"
+  || String.starts_with ~prefix:"::ffff:127." client_ip
+
+(** Mail handed over to send out, from this machine or a signed-in user: no inbound checks apply. *)
+let is_submission ~client_ip ~username =
+  is_loopback client_ip || Option.is_some username
+
 (** Check if relay is allowed for the given recipient.
 
     @param state Current connection state
