@@ -213,6 +213,51 @@ let test_memory_queue_enqueue_dequeue () =
      | None -> fail "dequeue returned None")
   | Error _ -> fail "enqueue failed"
 
+let temp_dir () =
+  let dir =
+    Filename.concat (Filename.get_temp_dir_name ())
+      (Printf.sprintf "smtpd-queue-%d-%d" (Unix.getpid ()) (Random.bits ()))
+  in
+  Unix.mkdir dir 0o700;
+  dir
+
+let test_message = {
+  id = "";
+  sender = Some { local_part = "sender"; domain = "example.com" };
+  recipients = [{ local_part = "rcpt"; domain = "example.org" }];
+  data = "Subject: Test\r\n\r\nBody\r\n";
+  received_at = 0.;
+  auth_user = None;
+  client_ip = "127.0.0.1";
+  client_domain = "client.example.com";
+}
+
+let unfinished_files dir =
+  List.filter (fun f -> Filename.check_suffix f ".tmp") (Array.to_list (Sys.readdir dir))
+
+let test_file_queue_survives_restart () =
+  let dir = temp_dir () in
+  let queue = Smtp_queue.File_queue.create_with_path ~base_path:dir in
+  match Smtp_queue.File_queue.enqueue queue test_message with
+  | Error _ -> fail "enqueue failed"
+  | Ok id ->
+    check bool "on disk under its id" true
+      (Sys.file_exists (Filename.concat dir (id ^ ".msg")));
+    check (list string) "no temporary file left" [] (unfinished_files dir);
+    let restarted = Smtp_queue.File_queue.create_with_path ~base_path:dir in
+    (match Smtp_queue.File_queue.dequeue restarted with
+     | Some m -> check string "whole after a restart" test_message.data m.data
+     | None -> fail "lost after a restart")
+
+let test_file_queue_drops_unfinished_writes () =
+  let dir = temp_dir () in
+  let oc = open_out_bin (Filename.concat dir "123.C0FFEE.msg.tmp") in
+  output_string oc "X-Queue-ID: 123\r\nX-Sender: <half";
+  close_out oc;
+  let queue = Smtp_queue.File_queue.create_with_path ~base_path:dir in
+  check (list string) "removed at start-up" [] (unfinished_files dir);
+  check bool "never delivered" true (Smtp_queue.File_queue.dequeue queue = None)
+
 let test_memory_queue_stats () =
   let queue = Smtp_queue.Memory_queue.create () in
   let stats = Smtp_queue.Memory_queue.get_stats queue in
@@ -316,6 +361,8 @@ let response_tests = [
 let queue_tests = [
   "memory queue enqueue/dequeue", `Quick, test_memory_queue_enqueue_dequeue;
   "memory queue stats", `Quick, test_memory_queue_stats;
+  "file queue survives a restart", `Quick, test_file_queue_survives_restart;
+  "file queue drops unfinished writes", `Quick, test_file_queue_drops_unfinished_writes;
 ]
 
 let auth_tests = [

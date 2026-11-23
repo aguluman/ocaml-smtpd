@@ -151,7 +151,18 @@ end = struct
       ) [] entries
     with _ -> []
 
+  (* A temporary file was never acknowledged, so it is safe to remove. *)
+  let remove_unfinished base_path =
+    try
+      Array.iter
+        (fun entry ->
+          if Filename.check_suffix entry ".tmp" then
+            try Sys.remove (Filename.concat base_path entry) with Sys_error _ -> ())
+        (Sys.readdir base_path)
+    with Sys_error _ -> ()
+
   let create_with_path ~base_path =
+    remove_unfinished base_path;
     let index = load_existing base_path in
     { base_path; index }
 
@@ -162,6 +173,20 @@ end = struct
 
   let message_path t id =
     Filename.concat t.base_path (id ^ ".msg")
+
+  let sync_dir path =
+    let fd = Unix.openfile path [ Unix.O_RDONLY ] 0 in
+    Fun.protect ~finally:(fun () -> Unix.close fd) (fun () -> Unix.fsync fd)
+
+  (* Only after this returns may the message be acknowledged: its contents and its name are on disk. *)
+  let write_durably path contents =
+    let tmp = path ^ ".tmp" in
+    let fd = Unix.openfile tmp [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ] 0o666 in
+    Fun.protect ~finally:(fun () -> Unix.close fd) (fun () ->
+        ignore (Unix.write_substring fd contents 0 (String.length contents));
+        Unix.fsync fd);
+    Unix.rename tmp path;
+    sync_dir (Filename.dirname path)
 
   let serialize_message msg =
     (* Simple format: headers then body *)
@@ -261,9 +286,7 @@ end = struct
       let id = generate_queue_id () in
       let msg = { msg with id } in
       let path = message_path t id in
-      let oc = open_out_bin path in
-      output_string oc (serialize_message msg);
-      close_out oc;
+      write_durably path (serialize_message msg);
       t.index <- (id, path) :: t.index;
       Ok id
     with exn ->
